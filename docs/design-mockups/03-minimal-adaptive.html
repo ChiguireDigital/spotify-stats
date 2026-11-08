@@ -1,0 +1,52 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mockup 03 — Minimal Adaptive | Spotify Stats</title>
+  <style>
+    :root { --bg:#0a0a0a; --accent:#1db954; --fg:#f3f3f3; --muted:#b8b8b8; --line:rgba(255,255,255,.09); }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 Inter,Segoe UI,system-ui,sans-serif;transition:background .5s,color .4s}
+    .accent-bar{height:4px;background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 30%, transparent));transition:background .5s}
+    .wrap{max-width:980px;margin:0 auto;padding:28px 20px 70px}
+    header{display:flex;justify-content:space-between;gap:16px;align-items:center;padding-bottom:18px;border-bottom:1px solid var(--line)}
+    h1{font-size:20px;margin:0} .sub{color:var(--muted);margin:2px 0 0;font-size:13px}
+    .controls{margin:18px 0;display:flex;flex-wrap:wrap;gap:8px}
+    button{background:transparent;color:var(--fg);border:1px solid var(--line);padding:8px 11px;border-radius:8px;cursor:pointer}
+    .now{display:flex;gap:16px;align-items:center;padding:18px 0;border-bottom:1px solid var(--line)}
+    .cover{width:88px;height:88px;border-radius:10px;object-fit:cover;background:#222}
+    .label{font-size:11px;letter-spacing:.12em;color:var(--muted)} .track{font-size:24px;font-weight:650;margin:4px 0}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;margin-top:8px}
+    section h2{font-size:13px;letter-spacing:.08em;color:var(--muted);margin:22px 0 8px;text-transform:uppercase}
+    .item{display:flex;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+    .n{width:20px;color:var(--muted)} .m{color:var(--muted);font-size:13px}
+    @media(max-width:720px){.grid{grid-template-columns:1fr}.track{font-size:20px}}
+  </style>
+</head>
+<body>
+  <div class="accent-bar"></div>
+  <main class="wrap">
+    <header><div><h1>Spotify Stats</h1><p class="sub">Minimal + color adaptativo del cover</p></div><div class="sub" id="state">—</div></header>
+    <div class="controls" id="controls">
+      <button data-track="almost">"Almost Nothing"</button><button data-track="pink">"Pink"</button><button data-track="laura">"Laura Palmer's Theme"</button><button data-track="none">Nada sonando</button>
+    </div>
+    <section class="now">
+      <img id="cover" class="cover" alt="" />
+      <div><div class="label" id="label">SONANDO AHORA</div><div class="track" id="trackName">—</div><div class="sub" id="trackMeta">—</div></div>
+    </section>
+    <div class="grid">
+      <section><h2>Top artistas</h2><div class="item"><span class="n">1</span><div>Toby Fox<div class="m">top reciente</div></div></div><div class="item"><span class="n">2</span><div>Silent Poets<div class="m">top reciente</div></div></div></section>
+      <section><h2>Reproducciones recientes</h2><div class="item"><span class="n">•</span><div>"Almost Nothing"<div class="m">hoy</div></div></div><div class="item"><span class="n">•</span><div>"Pink"<div class="m">hoy</div></div></div></section>
+    </div>
+  </main>
+<script>
+const tracks={almost:{name:'Almost Nothing (Timeless Piano Mix)',meta:'Silent Poets, Okay Kaya',c1:'#6fa8dc',c2:'#17324d'},pink:{name:'Pink',meta:'Artista',c1:'#d45c7a',c2:'#3f1422'},laura:{name:"Laura Palmer's Theme",meta:'Angelo Badalamenti',c1:'#8a332b',c2:'#160808'},none:null};
+const $=id=>document.getElementById(id);
+function svgCover(c1,c2){const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><defs><linearGradient id='g' x1='0' x2='1' y2='1'><stop offset='0' stop-color='${c1}'/><stop offset='1' stop-color='${c2}'/></linearGradient></defs><rect width='300' height='300' fill='url(#g)'/></svg>`;return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)}
+function lum(r,g,b){const a=[r,g,b].map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*a[0]+.7152*a[1]+.0722*a[2]}
+function sample(img){const c=document.createElement('canvas');c.width=20;c.height=20;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(img,0,0,20,20);const d=x.getImageData(0,0,20,20).data;let r=0,g=0,b=0,n=0;for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++}return [Math.round(r/n),Math.round(g/n),Math.round(b/n)]}
+function set(k){const t=tracks[k],s=document.documentElement.style;if(!t){s.setProperty('--bg','#000');s.setProperty('--accent','#333');s.setProperty('--fg','#f3f3f3');s.setProperty('--muted','#9a9a9a');s.setProperty('--line','rgba(255,255,255,.1)');$('cover').src=svgCover('#111','#000');$('label').textContent='EN REPOSO';$('trackName').textContent='Nada sonando';$('trackMeta').textContent='Fondo negro hasta que reproduzcas algo.';$('state').textContent='sin reproducción';return}
+$('cover').src=svgCover(t.c1,t.c2);$('trackName').textContent=t.name;$('trackMeta').textContent=t.meta;$('label').textContent='SONANDO AHORA';$('state').textContent='color adaptado';
+$('cover').onload=()=>{const [r,g,b]=sample($('cover')),dark=lum(r,g,b)>.45;s.setProperty('--bg',`rgb(${Math.max(0,r-65)},${Math.max(0,g-65)},${Math.max(0,b-65)})`);s.setProperty('--accent',`rgb(${r},${g},${b})`);s.setProperty('--fg',dark?'#161616':'#f3f3f3');s.setProperty('--muted',dark?'#444':'#b8b8b8');s.setProperty('--line',dark?'rgba(0,0,0,.12)':'rgba(255,255,255,.09)')};if($('cover').complete)$('cover').onload()}
+$('controls').addEventListener('click',e=>{if(e.target.dataset.track)set(e.target.dataset.track)});set('almost');
+</script>
+</body></html>

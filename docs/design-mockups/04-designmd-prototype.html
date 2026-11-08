@@ -1,0 +1,372 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prototipo DESIGN.md — Spotify Stats</title>
+  <style>
+    :root {
+      --bg: #0B0B0D;
+      --surface: #17171B;
+      --text: #F5F5F5;
+      --text-2: #A1A1AA;
+      --divider: rgba(255,255,255,0.08);
+      --accent: #8a8a8a;
+      --accent-rgb: 138,138,138;
+      --hero-h: clamp(420px, 62vh, 600px);
+      --content-w: 1120px;
+      --pad: clamp(18px, 4vw, 40px);
+      --motion-bg: 780ms;
+      --motion-ui: 280ms;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { color-scheme: dark; }
+    body {
+      margin: 0;
+      font-family: Inter, Geist, "Segoe UI", system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text);
+      background: var(--bg);
+      transition: background-color var(--motion-bg) ease, color var(--motion-bg) ease;
+    }
+    a { color: inherit; }
+    img { display: block; max-width: 100%; }
+
+    /* AmbientBackground (independent of content layout) */
+    .ambient {
+      position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+      background: var(--bg);
+      transition: background-color var(--motion-bg) ease;
+    }
+    .ambient .glow {
+      position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55;
+      transform: translateZ(0);
+      transition: background var(--motion-bg) ease, opacity var(--motion-bg) ease;
+      will-change: transform;
+    }
+    .ambient .glow-a { width: min(70vw, 720px); height: min(70vw, 720px); left: -8%; top: -12%; background: radial-gradient(circle, rgba(var(--accent-rgb), .42), rgba(var(--accent-rgb), 0) 68%); }
+    .ambient .glow-b { width: min(55vw, 560px); height: min(55vw, 560px); right: -6%; top: 18%; background: radial-gradient(circle, rgba(var(--accent-rgb), .22), rgba(var(--accent-rgb), 0) 70%); }
+    .ambient .noise-fade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11,11,13,0) 0%, var(--bg) 72%); transition: background var(--motion-bg) ease; }
+
+    .page { position: relative; z-index: 1; }
+
+    /* Navigation — compact, integrated */
+    .nav {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 14px var(--pad);
+      background: linear-gradient(180deg, rgba(11,11,13,.72), rgba(11,11,13,0));
+      backdrop-filter: blur(8px);
+    }
+    .brand { font-weight: 600; font-size: 14px; letter-spacing: .01em; }
+    .nav-links { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+    .nav-links a { font-size: 13px; color: var(--text-2); text-decoration: none; padding: 4px 0; border-bottom: 1px solid transparent; transition: color var(--motion-ui) ease, border-color var(--motion-ui) ease; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a[aria-current="page"] { color: var(--text); border-bottom-color: rgba(var(--accent-rgb), .7); }
+    .nav-meta { font-size: 12px; color: var(--text-2); }
+
+    /* ImmersiveHero */
+    .hero {
+      position: relative;
+      min-height: var(--hero-h);
+      display: grid;
+      align-items: end;
+      padding: 0 var(--pad) 34px;
+      overflow: clip;
+    }
+    .hero-art {
+      position: absolute; inset: 0 0 -1px 0; z-index: 0;
+    }
+    .hero-art img {
+      position: absolute; right: min(4vw, 40px); top: 24px;
+      width: min(46vw, 460px); height: min(46vw, 460px); max-height: calc(var(--hero-h) - 48px);
+      object-fit: cover; border-radius: 12px;
+      box-shadow: 0 30px 80px rgba(0,0,0,.45);
+      opacity: .96;
+      transition: opacity var(--motion-bg) ease, transform var(--motion-bg) ease;
+    }
+    /* Layer 1: image fade into base */
+    .hero-fade {
+      position: absolute; inset: 0; z-index: 1;
+      background: linear-gradient(180deg, rgba(11,11,13,.08) 0%, rgba(11,11,13,.18) 28%, rgba(11,11,13,.62) 58%, var(--bg) 100%);
+      transition: background var(--motion-bg) ease;
+    }
+    /* Layer 2: text protection (directional) */
+    .hero-protect {
+      position: absolute; inset: 0; z-index: 2;
+      background: linear-gradient(90deg, rgba(11,11,13,.82) 0%, rgba(11,11,13,.58) 34%, rgba(11,11,13,.12) 62%, rgba(11,11,13,0) 100%);
+    }
+    /* Layer 3: ambient illumination handled by .ambient; extra local warmth */
+    .hero-warm {
+      position: absolute; inset: 0; z-index: 2;
+      background: radial-gradient(ellipse 80% 70% at 75% 35%, rgba(var(--accent-rgb), .18), rgba(var(--accent-rgb), 0) 62%);
+      transition: background var(--motion-bg) ease;
+    }
+    /* Layer 4: surface transition (seamless into page) */
+    .hero-seam {
+      position: absolute; left: 0; right: 0; bottom: -1px; height: 120px; z-index: 3;
+      background: linear-gradient(180deg, rgba(11,11,13,0), var(--bg));
+    }
+    .hero-content {
+      position: relative; z-index: 4;
+      max-width: min(560px, 100%);
+      padding-top: 72px;
+    }
+    .kicker { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-2); margin: 0 0 10px; }
+    .hero-title {
+      margin: 0;
+      font-size: clamp(40px, 7vw, 76px);
+      line-height: .98;
+      font-weight: 650;
+      letter-spacing: -0.03em;
+      text-wrap: balance;
+    }
+    .hero-sub { margin: 14px 0 0; font-size: clamp(16px, 2vw, 20px); color: var(--text-2); }
+    .hero-meta { margin-top: 18px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; color: var(--text-2); font-size: 13px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: rgb(var(--accent-rgb)); box-shadow: 0 0 0 5px rgba(var(--accent-rgb), .16); transition: background var(--motion-bg) ease, box-shadow var(--motion-bg) ease; }
+    .demo-controls { margin: 0 var(--pad) 8px; display: flex; gap: 10px; flex-wrap: wrap; position: relative; z-index: 4; }
+    .demo-controls button {
+      appearance: none; border: 0; background: transparent; color: var(--text-2); padding: 6px 0;
+      font: inherit; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--divider);
+      transition: color var(--motion-ui) ease, border-color var(--motion-ui) ease;
+    }
+    .demo-controls button:hover { color: var(--text); border-bottom-color: rgba(var(--accent-rgb), .5); }
+
+    /* Content */
+    .content { max-width: var(--content-w); margin: 0 auto; padding: 8px var(--pad) 80px; }
+    .section { padding: 34px 0; border-top: 1px solid var(--divider); }
+    .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .section h2 { margin: 0; font-size: clamp(22px, 2.4vw, 28px); font-weight: 600; letter-spacing: -0.02em; }
+    .section-note { color: var(--text-2); font-size: 13px; }
+    .cols { display: grid; grid-template-columns: 1.15fr .85fr; gap: 34px; align-items: start; }
+
+    /* Top Artists — editorial ranking */
+    .artist-rank { list-style: none; margin: 0; padding: 0; }
+    .artist-rank li {
+      display: grid; grid-template-columns: 64px 56px 1fr auto; gap: 16px; align-items: center;
+      padding: 14px 0; border-top: 1px solid var(--divider);
+    }
+    .rank-num { font-size: clamp(34px, 4vw, 48px); line-height: 1; font-weight: 600; letter-spacing: -0.04em; color: rgba(245,245,245,.18); }
+    .artist-photo { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--surface); }
+    .item-title { font-size: 16px; font-weight: 550; margin: 0; }
+    .item-meta { font-size: 13px; color: var(--text-2); margin: 3px 0 0; }
+    .metric { font-size: 13px; color: var(--text-2); text-align: right; }
+
+    /* Top Tracks — horizontal rows */
+    .track-rows { list-style: none; margin: 0; padding: 0; }
+    .track-rows li {
+      display: grid; grid-template-columns: 48px 1fr auto; gap: 14px; align-items: center;
+      padding: 11px 10px; margin: 0 -10px; border-top: 1px solid var(--divider); border-radius: 10px;
+      transition: background var(--motion-ui) ease;
+    }
+    .track-rows li:hover { background: rgba(255,255,255,.03); }
+    .track-art { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: var(--surface); }
+
+    /* Listening History — clean chronological list (no cards per entry) */
+    .history { list-style: none; margin: 0; padding: 0; }
+    .history li {
+      display: grid; grid-template-columns: 44px 1fr auto; gap: 14px; align-items: center;
+      padding: 13px 0; border-top: 1px solid var(--divider);
+    }
+    .history img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: var(--surface); }
+    time { font-size: 13px; color: var(--text-2); white-space: nowrap; }
+
+    .footer { padding: 28px 0 8px; border-top: 1px solid var(--divider); color: var(--text-2); font-size: 12px; }
+
+    @media (max-width: 920px) {
+      .cols { grid-template-columns: 1fr; gap: 0; }
+      .hero-art img { right: -2%; top: 18px; width: min(58vw, 360px); opacity: .55; }
+      .hero-protect { background: linear-gradient(90deg, rgba(11,11,13,.88) 0%, rgba(11,11,13,.62) 55%, rgba(11,11,13,.35) 100%); }
+    }
+    @media (max-width: 640px) {
+      :root { --hero-h: clamp(420px, 72svh, 560px); }
+      .nav-links { display: none; }
+      .hero { align-items: end; padding-bottom: 24px; }
+      .hero-art img { left: 50%; right: auto; top: 14px; transform: translateX(-50%); width: min(72vw, 300px); height: min(72vw, 300px); opacity: .38; }
+      .hero-protect { background: linear-gradient(180deg, rgba(11,11,13,.2) 0%, rgba(11,11,13,.55) 38%, rgba(11,11,13,.88) 100%); }
+      .artist-rank li { grid-template-columns: 48px 48px 1fr; }
+      .metric { grid-column: 2 / -1; text-align: left; margin-top: -8px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :root { --motion-bg: 1ms; --motion-ui: 1ms; }
+      .ambient .glow { filter: blur(90px); }
+    }
+    :focus-visible { outline: 2px solid rgba(var(--accent-rgb), .8); outline-offset: 3px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+    <div class="noise-fade"></div>
+  </div>
+
+  <div class="page">
+    <nav class="nav" aria-label="Principal">
+      <div class="brand">Spotify Stats</div>
+      <div class="nav-links">
+        <a href="#" aria-current="page">Inicio</a>
+        <a href="#artistas">Artistas</a>
+        <a href="#canciones">Canciones</a>
+        <a href="#historial">Historial</a>
+      </div>
+      <div class="nav-meta" id="navMeta">color desde artwork</div>
+    </nav>
+
+    <div class="demo-controls" aria-label="Simular reproducción (prototipo)">
+      <button type="button" data-k="almost">"Almost Nothing"</button>
+      <button type="button" data-k="laura">"Laura Palmer's Theme"</button>
+      <button type="button" data-k="pink">"Pink"</button>
+      <button type="button" data-k="sun">"Sunlight"</button>
+      <button type="button" data-k="none">Nada sonando</button>
+    </div>
+
+    <header class="hero" id="top">
+      <div class="hero-art">
+        <img id="heroImg" alt="" />
+        <div class="hero-fade"></div>
+        <div class="hero-protect"></div>
+        <div class="hero-warm"></div>
+        <div class="hero-seam"></div>
+      </div>
+      <div class="hero-content">
+        <p class="kicker" id="kicker">Sonando ahora</p>
+        <h1 class="hero-title" id="heroTitle">—</h1>
+        <p class="hero-sub" id="heroSub">—</p>
+        <div class="hero-meta"><span class="dot" id="dot" aria-hidden="true"></span><span id="heroState">Ambiente adaptado al artwork</span></div>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="cols">
+        <section class="section" id="artistas" aria-labelledby="h-artistas">
+          <div class="section-head"><h2 id="h-artistas">Artistas más escuchados</h2><span class="section-note">últimos meses</span></div>
+          <ol class="artist-rank">
+            <li><span class="rank-num">01</span><img class="artist-photo" data-a="toby" alt="Toby Fox" /><div><p class="item-title">Toby Fox</p><p class="item-meta">afinidad alta</p></div><div class="metric">top 1</div></li>
+            <li><span class="rank-num">02</span><img class="artist-photo" data-a="silent" alt="Silent Poets" /><div><p class="item-title">Silent Poets</p><p class="item-meta">afinidad alta</p></div><div class="metric">top 2</div></li>
+            <li><span class="rank-num">03</span><img class="artist-photo" data-a="angelo" alt="Angelo Badalamenti" /><div><p class="item-title">Angelo Badalamenti</p><p class="item-meta">afinidad alta</p></div><div class="metric">top 3</div></li>
+          </ol>
+        </section>
+
+        <section class="section" id="canciones" aria-labelledby="h-canciones">
+          <div class="section-head"><h2 id="h-canciones">Canciones destacadas</h2><span class="section-note">selección personal</span></div>
+          <ul class="track-rows">
+            <li><img class="track-art" data-t="almost" alt="" /><div><p class="item-title">"Almost Nothing (Timeless Piano Mix)"</p><p class="item-meta">Silent Poets, Okay Kaya</p></div><div class="metric">HOPE</div></li>
+            <li><img class="track-art" data-t="pink" alt="" /><div><p class="item-title">"Pink"</p><p class="item-meta">Artista</p></div><div class="metric">—</div></li>
+            <li><img class="track-art" data-t="laura" alt="" /><div><p class="item-title">"Laura Palmer's Theme"</p><p class="item-meta">Angelo Badalamenti</p></div><div class="metric">Twin Peaks</div></li>
+          </ul>
+        </section>
+      </div>
+
+      <section class="section" id="historial" aria-labelledby="h-historial">
+        <div class="section-head"><h2 id="h-historial">Actividad reciente</h2><span class="section-note">cronológico</span></div>
+        <ul class="history">
+          <li><img data-t="almost" alt="" /><div><p class="item-title">"Almost Nothing (Timeless Piano Mix)"</p><p class="item-meta">Silent Poets, Okay Kaya</p></div><time>hace un momento</time></li>
+          <li><img data-t="pink" alt="" /><div><p class="item-title">"Pink"</p><p class="item-meta">Artista</p></div><time>hoy</time></li>
+          <li><img data-t="laura" alt="" /><div><p class="item-title">"Laura Palmer's Theme"</p><p class="item-meta">Angelo Badalamenti</p></div><time>reciente</time></li>
+        </ul>
+      </section>
+
+      <footer class="footer">Prototipo visual (DESIGN.md). El color se deriva del artwork; si no hay reproducción, el ambiente pasa a negro neutro manteniendo las estadísticas.</footer>
+    </main>
+  </div>
+
+<script>
+(() => {
+  const tracks = {
+    almost: { title: 'Almost Nothing', sub: 'Silent Poets, Okay Kaya — HOPE', c1:'#88b8e8', c2:'#183650', c3:'#6aa0d8', k:'Sonando ahora' },
+    laura:  { title: "Laura Palmer's Theme", sub: 'Angelo Badalamenti — Twin Peaks', c1:'#8f3a31', c2:'#140808', c3:'#c9786f', k:'Sonando ahora' },
+    pink:   { title: 'Pink', sub: 'Artista — Álbum', c1:'#d96b86', c2:'#34121d', c3:'#f0a0b5', k:'Sonando ahora' },
+    sun:    { title: 'Sunlight', sub: 'Artista — Single', c1:'#ffd166', c2:'#4a3200', c3:'#ffe39a', k:'Sonando ahora' },
+    none: null
+  };
+  const people = {
+    toby: ['#5b7c6a','#162019','Toby'],
+    silent: ['#6fa8dc','#10243b','SP'],
+    angelo: ['#7b3b34','#140808','AB']
+  };
+  const cache = new Map();
+  const $ = (s) => document.querySelector(s);
+  const heroImg = $('#heroImg');
+
+  function svgArt(a,b,c,label,w=800,h=800){
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'>
+      <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${a}'/><stop offset='1' stop-color='${b}'/></linearGradient>
+      <radialGradient id='r' cx='30%' cy='25%'><stop offset='0' stop-color='${c}' stop-opacity='.55'/><stop offset='1' stop-color='${c}' stop-opacity='0'/></radialGradient></defs>
+      <rect width='${w}' height='${h}' fill='url(#g)'/><rect width='${w}' height='${h}' fill='url(#r)'/>
+      <circle cx='${w*0.72}' cy='${h*0.68}' r='${w*0.22}' fill='rgba(255,255,255,.06)'/>
+      <text x='54' y='${h-54}' font-size='34' fill='rgba(255,255,255,.72)' font-family='Inter,Segoe UI,sans-serif'>${String(label).replace(/[<&]/g,'')}</text>
+    </svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+  function rgbToHsl(r,g,b){ r/=255; g/=255; b/=255; const max=Math.max(r,g,b), min=Math.min(r,g,b); let h,s,l=(max+min)/2;
+    if(max===min){h=s=0;} else { const d=max-min; s=l>.5?d/(2-max-min):d/(max+min);
+      switch(max){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;} h/=6; }
+    return [h*360,s*100,l*100];
+  }
+  function hslToRgb(h,s,l){ h/=360; s/=100; l/=100; let r,g,b;
+    if(s===0){r=g=b=l;} else { const hue2rgb=(p,q,t)=>{ if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
+      const q=l<.5?l*(1+s):l+s-l*s, p=2*l-q; r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3); }
+    return [Math.round(r*255),Math.round(g*255),Math.round(b*255)];
+  }
+  function pickAccent(img){
+    const c=document.createElement('canvas'); c.width=40; c.height=40; const x=c.getContext('2d',{willReadFrequently:true});
+    x.drawImage(img,0,0,40,40); const d=x.getImageData(0,0,40,40).data;
+    let best=null, bestScore=-1;
+    for(let i=0;i<d.length;i+=16){ const r=d[i],g=d[i+1],b=d[i+2],a=d[i+3]; if(a<200) continue;
+      const [h,s,l]=rgbToHsl(r,g,b);
+      // prefer saturated, not-too-dark/light colors (avoid muddy/white/black)
+      const score = (s/100) * (1 - Math.abs(l-48)/55) - (l<12?0.4:0) - (l>88?0.25:0);
+      if(score>bestScore){ bestScore=score; best={r,g,b,h,s,l}; }
+    }
+    if(!best) return [140,140,140];
+    // adjust for comfortable background use: keep hue, moderate saturation, mid luminance
+    const s = Math.min(Math.max(best.s, 28), 62);
+    const l = Math.min(Math.max(best.l, 38), 56);
+    return hslToRgb(best.h, s, l);
+  }
+  function setVars(rgb, neutral){
+    const s=document.documentElement.style;
+    if(neutral){
+      s.setProperty('--bg','#0B0B0D'); s.setProperty('--accent','#6b7280'); s.setProperty('--accent-rgb','107,114,128');
+      $('#navMeta').textContent='tema neutro'; return;
+    }
+    const [r,g,b]=rgb; s.setProperty('--accent',`rgb(${r},${g},${b})`); s.setProperty('--accent-rgb',`${r},${g},${b}`);
+    // keep base near-black with subtle tonal variation (spec: avoid pure black everywhere)
+    s.setProperty('--bg','#0B0B0D');
+    $('#navMeta').textContent=`ambiente: rgb(${r},${g},${b})`;
+  }
+  function apply(key){
+    const t=tracks[key];
+    if(!t){
+      $('#kicker').textContent='Nada sonando';
+      $('#heroTitle').textContent='Tu espacio musical';
+      $('#heroSub').textContent='No hay reproducción activa. Cuando suene algo, la atmósfera tomará el color del artwork.';
+      $('#heroState').textContent='Tema neutro, estadísticas disponibles';
+      heroImg.alt='';
+      heroImg.src = svgArt('#1b1b20','#0b0b0d','#2a2a30','Reposo');
+      heroImg.onload = () => setVars(null,true);
+      if(heroImg.complete) heroImg.onload();
+      return;
+    }
+    $('#kicker').textContent=t.k;
+    $('#heroTitle').textContent=t.title;
+    $('#heroSub').textContent=t.sub;
+    $('#heroState').textContent='Ambiente adaptado al artwork';
+    heroImg.alt = `Portada de ${t.title}`;
+    const src = svgArt(t.c1,t.c2,t.c3,t.title);
+    if(cache.has(key)){ heroImg.src=src; setVars(cache.get(key),false); return; }
+    heroImg.src = src;
+    heroImg.onload = () => { try { const rgb=pickAccent(heroImg); cache.set(key,rgb); setVars(rgb,false); } catch { setVars([138,138,138],false); } };
+    if(heroImg.complete) heroImg.onload();
+  }
+  // decorate supporting art
+  document.querySelectorAll('.artist-photo').forEach(el=>{ const p=people[el.dataset.a]; if(p) el.src=svgArt(p[0],p[1],p[0],p[2],200,200); });
+  document.querySelectorAll('[data-t]').forEach(el=>{ const t=tracks[el.dataset.t]; if(t) el.src=svgArt(t.c1,t.c2,t.c3,'',200,200); });
+  document.querySelector('.demo-controls').addEventListener('click', e=>{ const k=e.target?.dataset?.k; if(k) apply(k); });
+  apply('almost');
+})();
+</script>
+</body>
+</html>
